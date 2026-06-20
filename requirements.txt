@@ -1,0 +1,17 @@
+# Core runtime dependencies (pinned loosely; see pyproject.toml for source of truth)
+numpy>=1.24
+scipy>=1.10
+pandas>=2.0
+matplotlib>=3.7
+scikit-learn>=1.3
+pyyaml>=6.0
+
+# Data acquisition (Phase 3)
+yfinance>=0.2.40
+pandas-datareader>=0.10
+statsmodels>=0.14
+
+# Dev / testing
+pytest>=7.4
+pytest-cov>=4.1
+ruff>=0.4
