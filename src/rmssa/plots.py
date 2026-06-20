@@ -7,7 +7,7 @@ returns the Matplotlib Figure and optionally saves it.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Mapping
 
 import matplotlib
 

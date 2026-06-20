@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Iterable
 
 import numpy as np
 

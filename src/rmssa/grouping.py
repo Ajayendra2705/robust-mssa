@@ -35,10 +35,9 @@ def wcorr_weights(n: int, window: int) -> np.ndarray:
     matrix and define the inner product under which SSA separability is measured.
     """
     k = n - window + 1
-    lstar = min(window, k)
-    kstar = max(window, k)
+    lstar = min(window, k)  # longest anti-diagonal length
     s = np.arange(n)
-    return np.minimum.reduce([s + 1, np.full(n, lstar), n - s, np.full(n, kstar)])
+    return np.minimum.reduce([s + 1, np.full(n, lstar), n - s])
 
 
 def wcorrelation_matrix(series_stack: Sequence[np.ndarray] | np.ndarray, window: int) -> np.ndarray:

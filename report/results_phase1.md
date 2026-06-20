@@ -20,13 +20,18 @@ the architecture the robust variant will slot into without touching downstream c
 | `datasets.py` | synthetic panel generator + cached Yahoo loader | done (synthetic tested) |
 | `plots.py` | scree / w-correlation / component figures | done |
 
-**Tests: 52 passing** (`pytest`). Key correctness guarantees asserted:
+**Tests: 64 passing** (62 fast + 2 `external` pyts cross-checks; `pytest` / `pytest -m external`).
+Key correctness guarantees asserted:
 - Hankel + block-Hankel structure of the embedding.
 - SVD fidelity `Σ_i s_i U_i V_iᵀ = H`; rank-`r` truncation error = `σ_{r+1}` (Eckart–Young).
 - **Reconstruction identity:** full-grouping diagonal averaging returns the original series
   (univariate and per-channel MSSA) to ~1e-9 or better.
 - w-correlation: unit diagonal, symmetric, trend/oscillation separable, sinusoid pairs coupled.
 - Synthetic panel: clean signal is exactly rank `k`; contamination rate matches request.
+- **Analytic SSA-rank ground truth:** exponential->1, sinusoid->2, linear trend->2, sum of
+  two exponentials->2, modulated cosine->2, sum of two sinusoids->4 (all verified).
+- **External cross-check vs `pyts`:** full-reconstruction rel. error ~1e-15 and leading
+  elementary component correlates 1.000000 with ours (see `validation_reference.md`).
 
 ## 2. Baseline reproduction
 
@@ -43,10 +48,11 @@ the architecture the robust variant will slot into without touching downstream c
   error **6.5e-16**.
 - Figures written: `scree.png`, `wcorrelation.png`, `components_channel0.png`.
 
-> Validation against an external reference (R `Rssa` / `pyts`) is **pending** — deferred from
-> Day 9 because it needs the real downloaded panel; will be completed when Yahoo access is
-> available (or from cache) early in Phase 2. The internal reconstruction-identity and
-> Eckart–Young tests already pin correctness of the core algebra.
+> **External-reference validation (Day 9): done.** Closed via two independent routes that do
+> not depend on the real panel — analytic SSA-rank ground truth and a `pyts` cross-check
+> (`experiments/01_baseline_repro/validate_reference.py` -> `report/validation_reference.md`,
+> all checks pass). The only item still tied to live data is producing the baseline *figures*
+> on the real equity panel (below).
 
 ## 3. Reading / methodology notes produced
 - `ssa_math_notes.md` — four-stage (M)SSA derivation + implementation contract.
@@ -69,7 +75,8 @@ the architecture the robust variant will slot into without touching downstream c
    against?
 
 ## 5. Carry-over into Phase 2
-- Complete the external-reference validation once real data is available.
+- Produce the baseline *figures* on the real equity panel once Yahoo is reachable (loader
+  caches on first success; the algebra is already reference-validated).
 - Day 11: synthetic generator already supports `contamination` + ground-truth `mask`/`signal`
   → ready for subspace-recovery metrics (Day 12) and the first robust backend (Day 13).
 - The `DecompositionBackend` interface is the only thing the robust work needs to implement.

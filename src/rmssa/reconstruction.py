@@ -11,7 +11,7 @@ machine precision -- the reconstruction identity asserted by the Day-6 tests.
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping, Sequence
+from typing import Mapping, Sequence
 
 import numpy as np
 
@@ -25,19 +25,21 @@ __all__ = [
 
 
 def diagonal_average(matrix: np.ndarray) -> np.ndarray:
-    """Hankelize an L x K matrix into a length-(L+K-1) series by anti-diagonal means."""
+    """Hankelize an L x K matrix into a length-(L+K-1) series by anti-diagonal means.
+
+    Vectorised: every entry Y[i, j] contributes to output index s = i + j; the result is
+    the per-s mean. ``np.bincount`` sums values and counts per anti-diagonal in one pass
+    (O(L*K)), which is far faster than a Python loop over diagonals for long series.
+    """
     Y = np.asarray(matrix, dtype=float)
     if Y.ndim != 2:
         raise ValueError(f"matrix must be 2-D, got shape {Y.shape}")
     L, K = Y.shape
     n = L + K - 1
-    g = np.empty(n)
-    for s in range(n):
-        i0 = max(0, s - (K - 1))
-        i1 = min(L - 1, s)
-        i = np.arange(i0, i1 + 1)
-        g[s] = Y[i, s - i].mean()
-    return g
+    s = (np.arange(L)[:, None] + np.arange(K)[None, :]).ravel()  # anti-diagonal index
+    sums = np.bincount(s, weights=Y.ravel(), minlength=n)
+    counts = np.bincount(s, minlength=n)  # anti-diagonal lengths (always > 0)
+    return sums / counts
 
 
 def _as_groups(
