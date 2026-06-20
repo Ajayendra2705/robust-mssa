@@ -1,0 +1,35 @@
+# Phase-1 baseline reproduction (Days 8-10).
+# Standard MSSA on a small equity-index panel, with an offline synthetic fallback
+# so the experiment is reproducible without network access.
+
+seed: 0
+
+data:
+  source: yahoo            # yahoo | synthetic
+  tickers: ["^GSPC", "^FTSE", "^N225", "^GDAXI"]
+  start: "2005-01-01"
+  end: "2024-12-31"
+  field: "Close"
+  returns: true            # analyse log-returns
+  # fallback used if Yahoo is unreachable / rate-limited / uncached:
+  fallback: synthetic
+  synthetic:
+    T: 2000
+    p: 4
+    k: 2
+    noise_sd: 0.05
+    contamination: 0.0
+
+mssa:
+  window: 250              # ~1 trading year for daily data
+  rank: null              # null -> keep full numerical rank
+
+grouping:
+  trend: [0]
+  cycle: [1, 2, 3, 4]
+
+diagnostics:
+  scree_n: 30
+  wcorr_n: 20
+
+output_dir: experiments/01_baseline_repro/outputs

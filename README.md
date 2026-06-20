@@ -57,8 +57,8 @@ from rmssa.decomposition import StandardSVD            # implemented (Day 5)
 
 | Phase | Days | State |
 |-------|------|-------|
-| 1 — Foundations & standard-MSSA baseline | 1–10 | **in progress** |
-| 2 — Robust MSSA + synthetic validation | 11–25 | pending |
+| 1 — Foundations & standard-MSSA baseline | 1–10 | **done** (`v0.1-baseline`) — 52 tests passing |
+| 2 — Robust MSSA + synthetic validation | 11–25 | next |
 | 3 — Empirical study (equity + macro) | 26–40 | pending |
 | 4 — Out-of-sample evaluation | 41–50 | pending |
 | 5 — Report, release, paper draft | 51–60 | pending |
