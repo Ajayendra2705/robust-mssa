@@ -24,7 +24,8 @@ dependencies = [
 
 [project.optional-dependencies]
 data = [
-    "yfinance>=0.2.40",
+    "yfinance>=1.4",        # older versions hit Yahoo HTTP 429 / YFTzMissingError
+    "curl_cffi>=0.7",       # browser impersonation to avoid Yahoo rate-limiting
     "pandas-datareader>=0.10",
     "statsmodels>=0.14",
 ]

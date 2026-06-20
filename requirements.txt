@@ -7,7 +7,8 @@ scikit-learn>=1.3
 pyyaml>=6.0
 
 # Data acquisition (Phase 3)
-yfinance>=0.2.40
+yfinance>=1.4          # older versions hit Yahoo HTTP 429 / YFTzMissingError
+curl_cffi>=0.7         # browser impersonation to dodge Yahoo rate-limiting
 pandas-datareader>=0.10
 statsmodels>=0.14
 

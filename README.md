@@ -88,6 +88,23 @@ as a standalone report:
 python experiments/01_baseline_repro/validate_reference.py   # -> report/validation_reference.md
 ```
 
+## Troubleshooting: Yahoo Finance HTTP 429 / "possibly delisted; No timezone found"
+
+`yfinance` pulls from Yahoo's unofficial endpoints, which rate-limit (HTTP 429) requests
+that don't look like a real browser. A 429 during the timezone pre-fetch surfaces
+confusingly as `YFTzMissingError('… possibly delisted; No timezone found')` — the ticker is
+fine; the request was throttled. In order of effectiveness:
+
+1. **Upgrade yfinance** — by far the most common cause. Old versions (e.g. 0.2.40) use a
+   request pattern Yahoo now blocks. `pip install -U yfinance` (>=1.4) fixed it here.
+2. **Use a browser-impersonating session** — `load_yahoo` automatically uses a
+   `curl_cffi` Chrome session if `curl_cffi` is installed (`pip install curl_cffi`).
+3. **Back off / cache** — the loader caches to `data/raw/` on first success, so subsequent
+   runs don't re-hit Yahoo. Avoid tight download loops; add delays for many tickers.
+4. **Different network** — datacenter/CI IP ranges are sometimes blocked outright; a 429
+   that survives 1–3 usually means the IP itself is throttled. Wait, or use another network.
+5. **Offline fallback** — `make_synthetic_panel()` lets the whole pipeline run without Yahoo.
+
 ## Layout
 
 ```

@@ -110,6 +110,22 @@ def make_synthetic_panel(
 
 
 # ------------------------------------------------------------------------------ yahoo
+def _impersonating_session():
+    """A curl_cffi browser-impersonating session, or None if curl_cffi is absent.
+
+    Yahoo aggressively rate-limits (HTTP 429) requests that don't look like a real
+    browser. A curl_cffi session impersonating Chrome dodges most of that; if curl_cffi
+    isn't installed we return None and let yfinance use its own default session (which,
+    on a recent yfinance, is usually sufficient).
+    """
+    try:
+        from curl_cffi import requests as _creq
+
+        return _creq.Session(impersonate="chrome")
+    except Exception:
+        return None
+
+
 def load_yahoo(
     tickers: Sequence[str] | None = None,
     start: str = "2005-01-01",
@@ -143,10 +159,16 @@ def load_yahoo(
             import yfinance as yf  # local import: optional dependency
 
             raw = yf.download(
-                tickers, start=start, end=end, auto_adjust=True, progress=False
+                tickers, start=start, end=end, auto_adjust=True, progress=False,
+                session=_impersonating_session(),  # None if curl_cffi unavailable
             )
             if raw is None or raw.empty:
-                raise RuntimeError("yfinance returned no data")
+                raise RuntimeError(
+                    "yfinance returned no data. Most common cause is an outdated "
+                    "yfinance (Yahoo now rejects old request patterns with HTTP 429); "
+                    "run `pip install -U yfinance` (>=1.4). If still blocked, the IP may "
+                    "be rate-limited — wait, use a different network, or install curl_cffi."
+                )
             prices = raw[field] if field in raw.columns.get_level_values(0) else raw["Close"]
             prices = prices.dropna(how="all")
             if use_cache:

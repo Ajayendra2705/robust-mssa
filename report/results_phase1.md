@@ -37,15 +37,20 @@ Key correctness guarantees asserted:
 
 `experiments/01_baseline_repro/run_baseline.py` + `experiments/configs/baseline.yaml`.
 
-- **Intended data:** daily returns for `^GSPC, ^FTSE, ^N225, ^GDAXI`, 2005–2024 (Yahoo).
-- **This run:** Yahoo was rate-limited/unreachable in the build environment, so the script's
-  **offline synthetic fallback** was used (T=2000, p=4, k=2, clean). This is logged in
-  `outputs/summary.json` (`"source": "synthetic"`). Re-run with network/cache to use the real
-  panel — the loader caches to `data/raw/` on first success.
-- **Result (synthetic fallback, L=250):** numerical rank 250; variance contributions
-  61.16% / 17.21% / 17.18% / 1.26% / … — i.e. a dominant trend factor plus the expected
-  sinusoid **pair** (~17%+17%), matching the planted k=2 structure. Reconstruction relative
-  error **6.5e-16**.
+- **Data:** daily log-returns for `^GSPC, ^FTSE, ^N225, ^GDAXI`, 2005–2024 (Yahoo).
+- **Yahoo 429 — resolved.** Initial runs failed with HTTP 429 / `YFTzMissingError`; the cause
+  was an outdated `yfinance` (0.2.40). Upgrading to `yfinance>=1.4` (plus a `curl_cffi`
+  browser-impersonating session in the loader) fixed it. Real panel now downloads: **4619
+  trading days × 4 indices**, cached to `data/raw/`. See README "Troubleshooting".
+- **Real-data result (L=250):** numerical rank 250; the variance spectrum is **nearly flat**
+  (top components ~0.68% each) — i.e. raw daily returns have no dominant low-rank structure,
+  as expected for noise-like return series. Reconstruction relative error **2.7e-15**.
+  → *Empirical flag for Phase 2/3:* consider analysing prices/levels or a different transform
+  where common low-rank co-movement is stronger, and let the contamination study (where the
+  robust gain should appear) drive the comparison.
+- **Synthetic control (offline fallback, L=250):** with a planted k=2 structure the spectrum
+  is sharply low-rank — 61.2% trend + a 17%+17% sinusoid pair — confirming the pipeline
+  recovers known structure when it exists.
 - Figures written: `scree.png`, `wcorrelation.png`, `components_channel0.png`.
 
 > **External-reference validation (Day 9): done.** Closed via two independent routes that do
