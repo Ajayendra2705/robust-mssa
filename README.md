@@ -23,8 +23,8 @@ events (flash crashes, earnings shocks, macro announcements).
 - **Standard MSSA** (Rodrigues & Mahmoudvand, 2018) recovers the shared structure `S`
   but its L2/SVD step is **non-robust** — a few outlier columns rotate the leading
   singular vectors away from the true signal subspace.
-- **Robust SSA** (Kazemi & Rodrigues, 2023) is robust to outliers but is **univariate**,
-  discarding cross-sectional structure.
+- **Robust SSA** (Rodrigues et al., 2020; Kazemi & Rodrigues, 2023) is robust to outliers
+  but is **univariate**, discarding cross-sectional structure.
 
 This project combines them: **Robust MSSA** replaces the SVD step inside the MSSA
 pipeline with a robust low-rank estimator, and tests whether this yields more stable,
@@ -37,10 +37,11 @@ gain translates to out-of-sample evaluation.
 > interpretable factor decompositions on contaminated financial panels, and does this
 > translate into improved out-of-sample evaluation of the extracted components?
 
-Tested by comparing three methods across datasets and contamination regimes:
-1. **Standard MSSA** (baseline)
-2. **Column-wise Robust SSA** (robust but univariate)
-3. **Robust MSSA** (proposed)
+Tested with a **2×2 factorial** across datasets and contamination regimes —
+**{classical, robust} × {univariate SSA, multivariate MSSA}** — so the two research
+axes (classical-vs-robust and univariate-vs-multivariate) are cleanly separable. The
+two robust SVD algorithms are those of **Rodrigues, Pimentel, Messala & Kazemi (2020,
+*Entropy*)**: the Huber (**RHSSA**) and L1-norm (**RLSSA**) variants.
 
 ## Design commitment: the SVD step is interchangeable
 
@@ -48,22 +49,44 @@ The decomposition backend is a pluggable component. Embedding, grouping,
 reconstruction, and forecasting do **not** depend on which backend is used:
 
 ```python
-from rmssa.decomposition import StandardSVD            # implemented (Day 5)
-# from rmssa.decomposition import RobustSVD            # Phase 2 (Day 13)
-# from rmssa.decomposition import KernelRobustSVD      # Phase 2 (Day 19)
+from rmssa.decomposition import StandardSVD          # classical L2 SVD (baseline)
+from rmssa.decomposition import RobRSVD               # RHSSA — Huber robust SVD
+from rmssa.decomposition import AlternatingL1SVD      # RLSSA — L1-norm robust SVD
+
+from rmssa import MSSA
+model = MSSA(window=50, backend=RobRSVD(rank=6)).fit(panel)   # robust MSSA
 ```
+
+All three implement one contract, `decompose(H) -> (U, s, Vt)`; the robust backends
+collapse to the ordinary SVD when the data is clean, so classical-vs-robust is a fair
+comparison at zero contamination.
 
 ## Status
 
 | Phase | Days | State |
 |-------|------|-------|
-| 1 — Foundations & standard-MSSA baseline | 1–10 | **done** (`v0.1-baseline`) — 64 tests passing, reference-validated |
-| 2 — Robust MSSA + synthetic validation | 11–25 | next |
+| 1 — Foundations & standard-MSSA baseline | 1–10 | **done** (`v0.1-baseline`) — reference-validated |
+| 2 — Robust MSSA + synthetic validation | 11–20 | **done** (`v0.2-robust-synthetic`) — 99 tests passing |
+| 2b — Hardening & wrap | 21–25 | in progress |
 | 3 — Empirical study (equity + macro) | 26–40 | pending |
 | 4 — Out-of-sample evaluation | 41–50 | pending |
 | 5 — Report, release, paper draft | 51–60 | pending |
 
 See [`PLAN.md`](PLAN.md) for the full day-by-day plan.
+
+## Results so far
+
+Synthetic validation against a known clean signal (`report/phase2_summary.md` ties these
+together):
+
+- **No robustness tax at ε=0; robust wins under contamination** — [`results_phase2_grid.md`](report/results_phase2_grid.md).
+- **Contamination sweep** (recovery + subspace error vs ε) — [`results_phase2_sweep.md`](report/results_phase2_sweep.md).
+- **Where the gain is largest/smallest** (vary k/p/T/L) — [`results_phase2_dimsweep.md`](report/results_phase2_dimsweep.md).
+- **Huber vs L1** (near-equivalent; Huber cheaper) — [`results_phase2_algocompare.md`](report/results_phase2_algocompare.md).
+
+Headline: at 2% contamination Robust MSSA (Huber, multivariate) recovers the clean signal
+~27× more accurately than classical MSSA; classical collapses as contamination rises while
+Robust MSSA degrades gracefully. Every figure/number regenerates from a script + config + seed.
 
 ## Install
 
@@ -108,15 +131,30 @@ fine; the request was throttled. In order of effectiveness:
 ## Layout
 
 ```
-src/rmssa/      core library (embedding, decomposition, grouping, reconstruction, forecast, mssa, metrics, datasets)
-experiments/    reproducible studies, one folder per phase, configs in experiments/configs
-tests/          pytest suite (embedding & reconstruction identities, backend equivalence)
-report/         literature review, technical report, paper draft
+src/rmssa/      core library: embedding, decomposition (StandardSVD / RobRSVD / AlternatingL1SVD),
+                grouping, reconstruction, mssa, metrics, datasets  (forecast: Phase 4)
+experiments/    reproducible studies, one folder per phase; configs in experiments/configs;
+                experiment outputs (figures/CSVs) are gitignored — regenerate from the scripts
+tests/          pytest suite (embedding & reconstruction identities, backend equivalence,
+                robust correctness + independent cross-check, metrics)
+report/         literature notes, robust-SVD comparison, per-phase result notes, checkpoint summary
+```
+
+Regenerate the synthetic-validation results:
+
+```bash
+python experiments/02_synthetic_validation/run_grid.py     --config experiments/configs/grid_synthetic.yaml
+python experiments/02_synthetic_validation/run_sweep.py    --config experiments/configs/sweep_synthetic.yaml
+python experiments/02_synthetic_validation/run_dimsweep.py --config experiments/configs/dimsweep_synthetic.yaml
+python experiments/02_synthetic_validation/run_algo_compare.py --config experiments/configs/algo_compare.yaml
 ```
 
 ## References
 
 - Rodrigues, P.C. & Mahmoudvand, R. (2018). *The benefits of multivariate singular spectrum analysis over the univariate version.* J. Franklin Institute.
+- **Rodrigues, P.C., Pimentel, J., Messala, P. & Kazemi, M. (2020). *The decomposition and forecasting of mutual investment funds using singular spectrum analysis.* Entropy 22(1):8.** — source of the two robust SVD algorithms (RHSSA, RLSSA).
+- Hawkins, D.M., Liu, L. & Young, S. (2001). *Robust singular value decomposition.* NISS. — the L1-norm robust SVD (RLSSA).
+- Zhang, L., Shen, H. & Huang, J.Z. (2013). *Robust regularized singular value decomposition with application to mortality data.* Ann. Appl. Stat. — the Huber robust SVD (RHSSA).
 - Kazemi, M. & Rodrigues, P.C. (2023). *Robust singular spectrum analysis: comparison between classic and robust approaches.* Computational Statistics.
 - Neto, E.A.L. & Rodrigues, P.C. (2022). *Kernel robust singular value decomposition.* Expert Systems with Applications.
 - Rodrigues, P.C. & Mahmoudvand, R. (2020). *A new approach for the vector forecast algorithm in SSA.* Comm. Stat. Sim. Comp.
