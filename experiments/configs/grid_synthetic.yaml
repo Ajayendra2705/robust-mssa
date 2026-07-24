@@ -1,0 +1,28 @@
+# Day-16 first full-grid comparison on synthetic data (low contamination).
+# The 2x2 factorial: {classical, RHSSA(Huber), RLSSA(L1)} x {univariate, multivariate}.
+# Metric: signal-recovery error = ||recovered_signal - clean_S||_F / ||clean_S||_F.
+
+output_dir: experiments/02_synthetic_validation/outputs
+
+panel:
+  T: 300          # series length
+  p: 6            # number of series
+  k: 2            # number of shared latent factors
+  noise_sd: 0.03  # idiosyncratic noise level
+  outlier_scale: 8.0
+
+mssa:
+  window: 50      # window length L
+  rank: 6         # leading components kept. Signal SSA-rank here is 6 (factor 0 =
+                  # sin + linear trend -> rank ~4, factor 1 = sin -> rank 2); at r=6
+                  # the epsilon=0 recovery error collapses to the ~1% noise floor for
+                  # every config. r=4 undersized (20% residual) and made the robust
+                  # fit treat unmodeled signal as outliers.
+
+solver:           # robust-backend IRLS caps for the experiment (ranking stable well
+  max_iter: 60    # before tol=1e-9; verified error within ~1e-3 of full convergence)
+  tol: 1.0e-6
+
+experiment:
+  seeds: [0, 1, 2, 3, 4]           # averaged over
+  contamination: [0.0, 0.01, 0.02]  # Day-16 low-contamination range

@@ -64,7 +64,27 @@ while down-weighting or isolating the outlier contribution `O` in `H = S + N + O
 
 ---
 
-## Open questions to email the group (end of Day 10 checkpoint)
+---
+
+## ✅ Resolution — supervisor reply (24 Jul 2026)
+
+Prof. Rodrigues directed: **"use the two robust SVD algorithms used in the attached paper"**, and for the study **"compare classical vs. robust and univariate vs. multivariate forecasts"** (→ the 2×2 factorial now in the plan). No PhD collaborator is assigned at present.
+
+**✅ Confirmed against the attached PDF** — `48. 2020 - Entropy - Robust SSA.pdf` = **Rodrigues, Pimentel, Messala & Kazemi (2020), *Entropy* 22(1):8**. Its two robust SSA algorithms for model fit:
+- **RHSSA — Huber-function robust SVD** (d = 1.345), a special case of robust regularized SVD (Zhang, Shen & Huang 2013 [ref 25]); R `RobRSVD(rough=TRUE, uspar=0, vspar=0)`. → row #4 above.
+- **RLSSA — L1-norm robust SVD** (Hawkins, Liu & Young 2001 [ref 24]); R `robustSVD()` in *pcaMethods*. → row #3 above.
+
+**Built in Phase 2 (Days 13/15)**, both behind the shared `decompose` contract:
+- **`RobRSVD`** ⇔ RHSSA (Huber, d=1.345).
+- **`AlternatingL1SVD`** ⇔ RLSSA (L1-norm).
+
+Both use one engine: **IRLS by reweighted imputation** — weight residuals against the *full* rank-r model, pull down-weighted cells toward the model, re-truncate by SVD. This collapses to the ordinary SVD at ε=0 (verified: clean-data gap = 0.0), so classical-vs-robust is a fair comparison; under contamination it recovers the clean signal better than standard SVD (verified on synthetic panels).
+
+> ⚠️ **Open validation — solver, not estimator.** The *losses/estimators and the Huber constant (1.345) match the paper exactly*. What differs is the **optimiser**: we use a joint IRLS-by-imputation scheme, whereas the paper's R packages (`pcaMethods::robustSVD`, `RobRSVD`) use per-component alternating/deflation. The extracted subspaces should agree (the loss defines the estimator), but for direct comparability with Rodrigues' work, **cross-check numerically against the R packages** at Day 14/16. The paper also defines a **robust forecasting** algorithm (L1 + Huber) → Phase 4.
+
+---
+
+## Open questions to email the group (end of Day 10 checkpoint) — ANSWERED 24 Jul 2026
 1. Which robust SVD variant(s) does Kazemi & Rodrigues (2023) use, and should that be our
    primary estimator for direct comparability?
 2. Do you view the trajectory-matrix outliers as column-structured (date-driven) or cell-wise?

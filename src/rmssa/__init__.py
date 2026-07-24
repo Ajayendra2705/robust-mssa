@@ -11,6 +11,9 @@ from .decomposition import (
     Decomposition,
     DecompositionBackend,
     StandardSVD,
+    RobustSVD,
+    RobRSVD,
+    AlternatingL1SVD,
 )
 from .reconstruction import diagonal_average, reconstruct_series, reconstruct_mssa
 from .grouping import (
@@ -21,8 +24,19 @@ from .grouping import (
     suggest_groups_by_contribution,
 )
 from .mssa import MSSA
+from .metrics import (
+    principal_angles,
+    subspace_distance,
+    grassmann_distance,
+    subspace_overlap,
+    rmse,
+    mae,
+    relative_frobenius,
+    signal_recovery_error,
+    factor_stability,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # embedding
@@ -33,6 +47,9 @@ __all__ = [
     "Decomposition",
     "DecompositionBackend",
     "StandardSVD",
+    "RobustSVD",
+    "RobRSVD",
+    "AlternatingL1SVD",
     # reconstruction
     "diagonal_average",
     "reconstruct_series",
@@ -45,5 +62,15 @@ __all__ = [
     "suggest_groups_by_contribution",
     # orchestrator
     "MSSA",
+    # metrics
+    "principal_angles",
+    "subspace_distance",
+    "grassmann_distance",
+    "subspace_overlap",
+    "rmse",
+    "mae",
+    "relative_frobenius",
+    "signal_recovery_error",
+    "factor_stability",
     "__version__",
 ]

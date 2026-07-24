@@ -1,0 +1,30 @@
+# Day-18 sweep over factor structure & dimensions.
+# One-factor-at-a-time (OFAT) around a baseline, at fixed moderate contamination,
+# to map where Robust MSSA's gain over classical MSSA is largest / smallest.
+# Focus: classical vs RHSSA-Huber, multivariate. Rank tracks the signal (r = 2k+2).
+
+output_dir: experiments/02_synthetic_validation/outputs_dimsweep
+
+base:
+  T: 300
+  p: 6
+  k: 2
+  noise_sd: 0.03
+  outlier_scale: 8.0
+  window: 50
+  contamination: 0.10   # moderate: classical clearly hurt, robust clearly helps
+
+solver:
+  max_iter: 60
+  tol: 1.0e-6
+
+seeds: [0, 1, 2]
+
+# distinct factor periods so factors never alias (needed for k > 3)
+periods_pool: [50, 30, 80, 20, 65, 40]
+
+sweeps:
+  k: [1, 2, 3, 4]        # number of shared latent factors  (r = 2k+2)
+  p: [3, 6, 10, 15]      # panel width
+  T: [150, 300, 600]     # series length
+  L: [20, 40, 60, 80]    # window length

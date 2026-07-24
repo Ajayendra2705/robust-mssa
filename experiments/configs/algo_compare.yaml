@@ -1,0 +1,23 @@
+# Day-19 comparison of the two robust algorithms: RHSSA (Huber) vs RLSSA (L1).
+# Agreement at eps=0, divergence as eps rises, and per-algorithm cost/convergence.
+# Tighter solver caps than the sweeps so convergence (n_iter) is measured honestly.
+
+output_dir: experiments/02_synthetic_validation/outputs_algocompare
+
+panel:
+  T: 300
+  p: 6
+  k: 2
+  noise_sd: 0.03
+  outlier_scale: 8.0
+
+mssa:
+  window: 50
+  rank: 6
+
+solver:
+  max_iter: 300
+  tol: 1.0e-8
+
+seeds: [0, 1, 2, 3, 4]
+contamination: [0.0, 0.01, 0.05, 0.10, 0.20]

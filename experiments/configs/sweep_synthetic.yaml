@@ -1,0 +1,24 @@
+# Day-17 contamination sweep on synthetic data.
+# Same 2x2 grid as Day 16, but over a WIDE contamination range and scoring TWO
+# ground-truth metrics per config: signal-recovery error and subspace-recovery error.
+
+output_dir: experiments/02_synthetic_validation/outputs_sweep
+
+panel:
+  T: 300
+  p: 6
+  k: 2
+  noise_sd: 0.03
+  outlier_scale: 8.0
+
+mssa:
+  window: 50
+  rank: 6          # >= signal SSA-rank (see Day-16 note)
+
+solver:
+  max_iter: 60
+  tol: 1.0e-6
+
+experiment:
+  seeds: [0, 1, 2, 3, 4]
+  contamination: [0.0, 0.01, 0.05, 0.10, 0.20]

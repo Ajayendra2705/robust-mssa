@@ -2,11 +2,15 @@
 ## Robust Multivariate Singular Spectrum Analysis (Robust MSSA) for Latent Factor Extraction in Cross-Sectional Financial Time Series
 
 **Intern:** Ajayendra Kumar Bansod (IIT Kharagpur)
-**Supervisor:** Prof. Paulo Canas Rodrigues (UFBA / SaLLy) + assigned PhD collaborator
+**Supervisor:** Prof. Paulo Canas Rodrigues (UFBA / SaLLy). *No PhD collaborator assigned currently — Prof may have one MSc student join in a few months (confirmed 24 Jul 2026); until then the internship is solo. Steps that assumed a PhD collaborator now route to self-review + supervisor checkpoints.*
 **Window:** 12 weeks, 1 Jun 2026 → ~23 Aug 2026 · IST, fully remote
 **Cadence assumed:** 5 working days/week → **60 working days**. Weeks map to the proposal's timeline table.
 
-> **Note on current status (20 Jun 2026):** Calendar week 3 is in progress, but the repo holds only proposal docs and no code. This plan is written from **Day 1** so nothing is skipped; if Weeks 1–2 are partly done, compress them and pull the schedule forward. Day numbers are *working* days, not calendar days.
+> **Note on current status (24 Jul 2026):** **Phase 1 complete** — modular standard-MSSA baseline implemented, tested, and validated against analytical results and `pyts`; equity + synthetic datasets set up; repo scaffolded (`robust-mssa/`), tagged toward `v0.1-baseline`. Day-10 checkpoint email sent and answered by the supervisor. **Now entering Phase 2 (Robust MSSA).**
+>
+> **Supervisor guidance received (24 Jul 2026), folded into this plan:**
+> 1. **Robust estimator resolved & confirmed.** The attached paper is **Rodrigues, Pimentel, Messala & Kazemi (2020), *Entropy* 22(1):8 — "The Decomposition and Forecasting of Mutual Investment Funds Using SSA"** (`48. 2020 - Entropy - Robust SSA.pdf`). Its **two robust SSA algorithms for model fit** are: **(a) RLSSA — L1-norm robust SVD** (Hawkins, Liu & Young 2001; R `robustSVD()` in *pcaMethods*), and **(b) RHSSA — Huber-function robust SVD**, a special case of robust regularized SVD (Zhang, Shen & Huang 2013; R `RobRSVD(rough=TRUE, uspar=0, vspar=0)`, **d = 1.345**). Both are implemented behind the shared `decompose` interface as `AlternatingL1SVD` (RLSSA) and `RobRSVD` (RHSSA). ✅ Losses/estimators + Huber constant match the paper. ⚠️ **Open validation:** our solver is a joint IRLS-imputation, not the R packages' per-component deflation — cross-check numerical agreement vs `pcaMethods::robustSVD` / `RobRSVD` (Day 14/16) for direct comparability. The paper also gives a **robust forecasting** algorithm (L1 + Huber variants) → Phase 4.
+> 2. **Comparison design is now an explicit 2×2 factorial** (see below): **classical vs robust** crossed with **univariate vs multivariate** forecasts.
 
 ---
 
@@ -15,7 +19,22 @@
 - **Reproduce before you innovate:** a trustworthy standard-MSSA baseline must exist and be validated before Robust MSSA is built.
 - **Synthetic ground truth before real data:** validate correctness where the true factor structure is known, *then* move to equity/macro panels.
 - **Commit daily, open-source from the start:** GitHub repo public early; every method/experiment reproducible from a script + seed.
-- **Defer the estimator choice:** do *not* hard-commit to one robust SVD variant before the methodological discussion with the group (explicit ask in the proposal). Build the slot; fill it after consultation.
+- **Estimator choice (resolved & confirmed 24 Jul 2026):** the modular slot approach paid off — the slot was built in Phase 1; the supervisor's reply fills it with **the two robust SVD algorithms from Rodrigues et al. (2020, *Entropy*)** — L1-norm robust SVD (RLSSA) and Huber robust SVD (RHSSA) — both now implemented behind the unchanged `decompose` interface.
+
+---
+
+## Comparison design — 2×2 factorial (supervisor-directed, 24 Jul 2026)
+
+Every dataset (synthetic + real) and every out-of-sample evaluation runs the full grid, so the two research axes are cleanly separable:
+
+| | **Univariate** (per-series SSA) | **Multivariate** (MSSA, block-Hankel) |
+|---|---|---|
+| **Classical** (standard SVD) | classical SSA | classical MSSA |
+| **Robust** (robust SVD ×2) | robust SSA | **Robust MSSA** ← the project's target method |
+
+- **Axis 1 — classical vs robust:** does replacing the L2 SVD with a robust SVD improve factor recovery / forecasts under contamination?
+- **Axis 2 — univariate vs multivariate:** does sharing structure across series (MSSA) beat treating each series alone — and does that gain survive / grow under robustification?
+- Both robust SVD algorithms occupy the "robust" row, giving 2 (classical/robust backends) × 2 (uni/multi embedding) with the robust cell instantiated twice → **6 method configurations** per experiment. Report each axis marginally and the interaction.
 
 ---
 
@@ -85,7 +104,7 @@ robust-mssa/
 - Compare against a reference SSA implementation (e.g. `pyts`/R `Rssa` on one series) to confirm correctness. Produce w-correlation heatmaps and scree/eigenvalue plots. Document `L` selection heuristics.
 
 **Day 10 — Phase 1 wrap + checkpoint**
-- Clean `experiments/01_baseline_repro/` into a single reproducible script + config. Write short results note. **Send supervisor/PhD collaborator:** lit note, robust-estimator comparison table, and the explicit question: *which robust SVD variant for the MSSA trajectory-matrix setting?* Tag release `v0.1-baseline`.
+- Clean `experiments/01_baseline_repro/` into a single reproducible script + config. Write short results note. **Sent to supervisor** (lit note, robust-estimator comparison table, and the explicit estimator question). ✅ **Answered 24 Jul 2026:** use the two robust SVD algorithms from his attached paper (Rodrigues et al. 2020, *Entropy* — L1-norm RLSSA + Huber RHSSA); run classical-vs-robust × univariate-vs-multivariate; no PhD collaborator for now. Tag release `v0.1-baseline`.
 
 ---
 
@@ -95,32 +114,32 @@ robust-mssa/
 **Day 11 — Synthetic data generator**
 - `datasets.py`: generator producing panels `X = S + N + O` with **known** low-rank factor structure `S` (shared trend/cycle/co-movement), idiosyncratic noise `N`, and injectable sparse outliers `O`. Parameterise: #series `p`, #factors `k`, length `T`, noise level, contamination rate ε.
 
-**Day 12 — Ground-truth metrics**
-- `metrics.py`: subspace recovery error (principal angles between true vs estimated factor subspaces), reconstruction RMSE vs clean `S`, factor stability. Sanity-check that standard MSSA achieves ~0 subspace error at ε=0.
+**Day 12 — Ground-truth metrics ✅ done**
+- `metrics.py`: subspace recovery error (principal angles / `subspace_distance`, `grassmann_distance`, `subspace_overlap`), reconstruction `rmse`/`mae`/`relative_frobenius`, `signal_recovery_error` (vs clean `S`), `factor_stability`. All invariant to sign/rotation/permutation of factors. 13 unit tests (known-value + invariance).
 
-**Day 13 — Robust SVD backend #1**
-- Implement the first robust SVD variant agreed with the group (or a sensible default, e.g. robust PCA / alternating L1 / IRLS-weighted SVD) behind the **same `decompose` interface**. No changes to `mssa.py` should be required — this validates the modularity claim.
+**Day 13 — Robust SVD backend #1 = RHSSA (Huber robust SVD) ✅ done**
+- Implemented `RobRSVD` (Huber-function robust SVD, d=1.345; Zhang–Shen–Huang 2013 special case of robust regularized SVD, per Rodrigues et al. 2020) behind the **same `decompose` interface**. No changes to `mssa.py` — modularity claim holds.
 
-**Day 14 — Robust SVD backend #1: correctness**
-- Unit-test the robust backend: on uncontaminated data it should ≈ standard SVD; on a single planted outlier it should down-weight rather than rotate the leading subspace. Document convergence behaviour and cost.
+**Day 14 — Robust SVD backend #1: correctness ✅ done**
+- Unit-tested: clean-data gap vs standard SVD = 0.0 (collapses to L2 at ε=0); planted outlier down-weighted (recovers clean signal better than standard). **Cross-check:** an independent optimiser (robust weighted-ALS, `tests/test_robust_reference.py`) recovers the same robust subspace as the imputation solver on contaminated panels — runnable now, passes. Authoritative package-level check vs R `pcaMethods::robustSVD` / `RobRSVD(rough=TRUE,uspar=0,vspar=0)` is **scripted** (`experiments/02_synthetic_validation/rcheck/`, one command) and runs when R is installed; R is not on this machine, so that run is SKIPPED-pending, not failed.
 
-**Day 15 — Column-wise Robust SSA (the second baseline)**
-- Implement univariate Robust SSA applied series-by-series (the proposal's middle comparator: robust but discards multivariate structure). This becomes baseline #2 against standard MSSA and Robust MSSA.
+**Day 15 — Robust SVD backend #2 = RLSSA (L1-norm robust SVD) ✅ done**
+- Implemented `AlternatingL1SVD` (L1-norm robust SVD; Hawkins–Liu–Young 2001, R `robustSVD()` in *pcaMethods*, per Rodrigues et al. 2020) behind the same interface. Both robust backends now populate the "robust" row of the 2×2 grid; verified they agree with each other at ε=0 and with the independent ALS reference under contamination. (Note: the earlier plan slotted *kernel* robust SVD here; superseded by the two-algorithm directive — kernel robust SVD, Neto & Rodrigues 2022, demoted to optional extension.)
 
-**Day 16 — First three-way comparison on synthetic (low contamination)**
-- Run standard MSSA vs column-wise Robust SSA vs Robust MSSA at ε∈{0, 1%}. Confirm Robust MSSA ≈ standard MSSA when clean, and begins to separate as ε rises.
+**Day 16 — First full-grid comparison on synthetic (low contamination) ✅ done**
+- `experiments/02_synthetic_validation/run_grid.py` + `configs/grid_synthetic.yaml`: the **2×2 factorial** — {classical, RHSSA-Huber, RLSSA-L1} × {univariate SSA, multivariate MSSA} — at ε∈{0, 1%, 2%}, 5 seeds. Metric = signal-recovery error vs clean `S`. **Results** (`report/results_phase2_grid.md`): ε=0 all six ≈ 0.010 (no robustness tax); classical collapses to 0.35–0.42 at ε=2% while **Robust MSSA (Huber·multi) = 0.013 — best config, ~27× better than classical MSSA**; multivariate beats univariate for every method. All hard checks pass. ⚠️ **Rank lesson:** r must be ≥ signal SSA-rank (here 6) — r=4 undersized and made robust mistake unmodelled signal for outliers (feeds Day 21 rank selection).
 
-**Day 17 — Contamination sweep ε ∈ {1%, 5%, 10%, 20%}**
-- Full sweep across contamination rates, multiple seeds. Capture subspace error and reconstruction RMSE per method per ε. Store results as tidy CSV + config.
+**Day 17 — Contamination sweep ε ∈ {1%, 5%, 10%, 20%} ✅ done**
+- `experiments/02_synthetic_validation/run_sweep.py` + `configs/sweep_synthetic.yaml`: full 2×2 grid over ε∈{0,1,5,10,20}%, 5 seeds, **two metrics per config from one fit** — reconstruction (`signal_recovery_error`) and **subspace-recovery error** (largest principal angle vs the true clean-signal factor subspace). Tidy CSV + 2-panel plot + JSON. **16/16 checks pass.** **Results** (`report/results_phase2_sweep.md`): classical collapses (recovery >1.0 and subspace ~1.0 by ε≥10%) while **Robust MSSA (Huber·multi) degrades gracefully — recovery 0.016→0.146, subspace 0.011→0.731 over ε=1→20%**; multivariate beats univariate at every ε. Honest limit: robust subspace error reaches 0.73 at ε=20%. Shared experiment logic factored into `_grid_common.py` (reused by Day 16 grid).
 
-**Day 18 — Sweep over factor structure & dimensions**
-- Vary `k` (true #factors), `p` (panel width), `T` (length), and window `L`. Identify regimes where Robust MSSA's gain is largest/smallest. Begin a results table for the report.
+**Day 18 — Sweep over factor structure & dimensions ✅ done**
+- `experiments/02_synthetic_validation/run_dimsweep.py` + `configs/dimsweep_synthetic.yaml`: OFAT over k∈{1..4}, p∈{3..15}, T∈{150,300,600}, L∈{20..80} at ε=10%, 3 seeds, classical vs Robust MSSA (Huber), rank r=2k+2. **Results** (`report/results_phase2_dimsweep.md`): Robust MSSA wins in **every** regime (gain ≥ 2.9×). **Window L is the strongest lever** (2.9×@L=20 → 68×@L=80); longer T widens the edge (14×→34×); more factors k shrink it (53×@k=1 → 5.7×@k=4); panel width p matters least (~12–33×). Feeds L/rank selection (Day 21). *(Caught+fixed a key-mismatch bug that had frozen L=50 in the L-sweep.)*
 
-**Day 19 — Robust SVD backend #2 (kernel / alternative variant)**
-- Add a second robust variant (e.g. kernel robust SVD, Neto & Rodrigues 2022, or a second estimator) — again behind the same interface. This stress-tests modularity and gives a richer comparison.
+**Day 19 — Agreement & diagnostics across the two robust algorithms ✅ done**
+- `experiments/02_synthetic_validation/run_algo_compare.py` + `configs/algo_compare.yaml`: Huber vs L1 across ε∈{0,1,5,10,20}%, 5 seeds. Added `n_iter_`/`converged_` diagnostics to `RobustSVD` (unit-tested). **Results** (`report/results_phase2_algocompare.md`): the two are **near-equivalent in accuracy** (inter-algorithm subspace divergence < 0.006 even at ε=20%; recovery within ~5%); agree at ε=0 (divergence 0.0009); divergence grows monotonically with ε. **Huber is cheaper** (fewer iters — 34 vs 57 clean — and faster). Convergence caveat: both approach the 300-iter cap at ε≥10%. **Recommendation: default to Huber (RHSSA)**, keep L1 as the reported second algorithm. 3/3 checks pass. (Kernel robust SVD stretch not needed.)
 
-**Day 20 — Mid-internship checkpoint with supervisor**
-- Package synthetic findings (plots: subspace error vs ε per method). Decide with the group which robust variant(s) carry forward to the real-data study. Tag `v0.2-robust-synthetic`.
+**Day 20 — Mid-internship checkpoint with supervisor ✅ done**
+- Consolidated synthetic findings (Days 11–19) into `report/phase2_summary.md` (the checkpoint package) + drafted the supervisor email `report/checkpoint_email_day20.md`. Confirmed direction: both robust algorithms carry forward, **Huber primary / L1 secondary**; open item flagged for the group — run the R-package cross-check or accept the IRLS-imputation solver substitution. Committed Phase 2 and tagged **`v0.2-robust-synthetic`**. 99 tests pass, ruff clean.
 
 **Day 21 — Hyperparameter robustness**
 - Sensitivity of results to `L`, `r`, and robust-estimator tuning (e.g. weighting threshold). Establish default settings + a small grid for the empirical phase.
@@ -135,7 +154,7 @@ robust-mssa/
 - Draft `report/` section: methodology + synthetic validation with figures and tables. This is the empirical backbone of the eventual paper.
 
 **Day 25 — Phase 2 wrap**
-- Code review with PhD collaborator; address feedback. Confirm the three-method harness is frozen and trustworthy before touching real data. Tag `v0.3-validated`.
+- Self-review + supervisor checkpoint (no PhD collaborator assigned yet); address feedback. Confirm the **six-config 2×2 harness** is frozen and trustworthy before touching real data. Tag `v0.3-validated`.
 
 ---
 
@@ -151,17 +170,17 @@ robust-mssa/
 **Day 28 — Macro panel acquisition (FRED)**
 - Monthly US macro series (industrial production, CPI, unemployment, yield spreads) via FRED, following the business-cycle tracking spirit (de Carvalho, Rodrigues & Rua 2012). Align frequencies; document.
 
-**Day 29 — Run all three methods on equity panel**
+**Day 29 — Run the full method grid on the equity panel**
 - Standard MSSA / column-wise Robust SSA / Robust MSSA on the equity panel. Extract leading factors; interpret (market factor, regional/sector co-movements). Plot reconstructed trends through crisis windows.
 
-**Day 30 — Run all three methods on macro panel**
-- Same three-method run on the macro panel. Relate extracted factors to known business-cycle phases (recession shading). Qualitative interpretation note.
+**Day 30 — Run the full method grid on the macro panel**
+- Same 2×2 grid (classical/robust×2 × uni/multi) on the macro panel. Relate extracted factors to known business-cycle phases (recession shading). Qualitative interpretation note.
 
 **Day 31 — Temporal stability: rolling-window design**
 - Implement rolling/expanding-window factor extraction. Define a factor-stability metric (subspace overlap of leading factors between adjacent windows; sign/permutation alignment handled).
 
 **Day 32 — Stability analysis on equities**
-- Run rolling-window analysis; compare stability of leading factors across the three methods, especially **around crisis episodes** where outliers cluster. Expect Robust MSSA to be more stable — verify.
+- Run rolling-window analysis; compare stability of leading factors across the method grid, especially **around crisis episodes** where outliers cluster. Expect Robust MSSA to be more stable — verify.
 
 **Day 33 — Stability analysis on macro**
 - Same on macro panel. Tabulate stability metrics per method. Flag any regimes where robustness does *not* help (honest reporting).
@@ -190,7 +209,7 @@ robust-mssa/
 ---
 
 # PHASE 4 — Out-of-Sample Evaluation (Weeks 9–10 · Days 41–50)
-*Proposal deliverable: out-of-sample evaluation; comparison across all three methods and contamination levels.*
+*Proposal deliverable: out-of-sample evaluation; comparison across the full 2×2 method grid (classical/robust × uni/multi) and contamination levels.*
 
 **Day 41 — Forecasting backend**
 - `forecast.py`: SSA/MSSA recurrent forecast + vector forecast (Rodrigues & Mahmoudvand 2020). Test forecast identities on synthetic signals with known continuation.
@@ -199,7 +218,7 @@ robust-mssa/
 - Define rigorous protocol: train/test split, rolling-origin evaluation, horizons (h=1, 5, 20 for daily; 1,3,6,12 for monthly), metrics (RMSE, MAE, MASE), and significance testing (Diebold–Mariano). Follow the group's prior SSA forecasting methodology.
 
 **Day 43 — OOS run on synthetic**
-- Out-of-sample reconstruction/forecast accuracy of the *extracted trend components* vs held-out clean signal, across all three methods × contamination levels. This is the cleanest test of "does robustness translate to predictive content?"
+- Out-of-sample reconstruction/forecast accuracy of the *extracted trend components* vs held-out clean signal, across the full method grid × contamination levels. This is the cleanest test of "does robustness translate to predictive content?"
 
 **Day 44 — OOS run on equity panel**
 - Rolling-origin OOS evaluation on equities; per-method, per-horizon error tables. Pay attention to performance in crisis vs calm sub-periods.
@@ -231,7 +250,7 @@ robust-mssa/
 - Assemble `report/` (LaTeX): Abstract, Intro/Motivation (proposal §1–2), Methodology (MSSA + robust SVD), Synthetic validation, Empirical study, OOS evaluation, Discussion, Conclusion. Slot in figures/tables already produced.
 
 **Day 52 — Methods write-up**
-- Full, precise methodology section: block-Hankel embedding, the interchangeable SVD step, each robust variant, the three-method comparison design. Notation consistent with the proposal.
+- Full, precise methodology section: block-Hankel embedding, the interchangeable SVD step, both robust SVD algorithms, the 2×2 (classical/robust × uni/multi) comparison design. Notation consistent with the proposal.
 
 **Day 53 — Results write-up (synthetic + empirical)**
 - Polish synthetic and empirical sections with final figures, captions, and interpretation.
@@ -246,7 +265,7 @@ robust-mssa/
 - Fresh-clone test on a clean environment: regenerate key figures from scratch. Fix any hidden state/seed/path issues. Pin all dependency versions.
 
 **Day 57 — Internal review round**
-- Send report draft + repo to PhD collaborator/supervisor. Collect feedback.
+- Send report draft + repo to the supervisor (and MSc student if one has joined by then). Collect feedback.
 
 **Day 58 — Revise on feedback**
 - Incorporate review comments into report and code. Tighten figures and claims to what the data supports.
@@ -270,7 +289,8 @@ robust-mssa/
 | v1.0 | 60 | Report + release + paper draft |
 
 ## Key risks & mitigations
-- **Estimator choice stalls progress** → build the modular slot first (Day 13 uses a default); finalise variant after the Day 10/Day 20 discussions.
+- **Estimator choice** → ✅ resolved & confirmed (24 Jul 2026): the two robust SVD algorithms of Rodrigues et al. (2020, *Entropy*) — L1-norm (RLSSA) and Huber (RHSSA) — both implemented. Residual risk: our IRLS-imputation solver differs from the R packages; validate numerical agreement vs `pcaMethods::robustSVD` / `RobRSVD` (Day 14/16).
+- **No PhD collaborator assigned** → internship is solo for now (possible MSc student in a few months). Code-review/checkpoint steps route to self-review + supervisor; nothing blocks on a collaborator.
 - **Robust SVD too slow on long series** → randomized SVD init + caching (Day 22); subsample for sweeps.
 - **Weak/negative results on real data** → synthetic ground-truth study (Phase 2) still constitutes a publishable methodological contribution; report negatives honestly.
 - **Data gaps / non-aligned calendars** → handle explicitly in Days 27–28; spectral imputation available as fallback.

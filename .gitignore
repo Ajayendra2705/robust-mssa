@@ -24,6 +24,7 @@ data/synthetic/*
 
 # Results / figures (regenerate from experiment scripts)
 experiments/**/outputs/
+experiments/**/outputs_*/
 report/_build/
 *.pdf
 !report/*.pdf
@@ -33,3 +34,6 @@ report/_build/
 Thumbs.db
 .idea/
 .vscode/
+
+# R cross-check generated fixtures/outputs
+experiments/02_synthetic_validation/rcheck/*.csv
