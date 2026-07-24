@@ -19,8 +19,9 @@ Key findings on synthetic panels:
 
 - No accuracy cost at zero contamination: all methods recover the clean signal to ~1%,
   so the comparison is fair. As contamination rises, classical (M)SSA collapses (recovery
-  error exceeds 1.0 by ~10% contamination) while Robust MSSA degrades gracefully — e.g. at
-  2% contamination Robust MSSA is ~27× more accurate than classical MSSA.
+  error grows past 1.0 — i.e. worse than a zero prediction — around 10–20% contamination)
+  while Robust MSSA degrades gracefully — e.g. at 2% contamination Robust MSSA is ~27×
+  more accurate than classical MSSA.
 - Multivariate consistently beats univariate under contamination.
 - Robust MSSA's advantage is largest with longer windows and longer series, and smallest
   with short windows and higher-rank signals; it wins in every regime I tested.
