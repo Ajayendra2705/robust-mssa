@@ -3,7 +3,7 @@
 Phase-1 surface (Days 1-10): the full standard (M)SSA pipeline —
 embedding -> decomposition (pluggable backend) -> grouping/diagnostics ->
 reconstruction — plus the MSSA orchestrator and dataset loaders. Robust
-decomposition backends and forecasting arrive in later phases (see PLAN.md).
+decomposition backends and forecasting arrive in later phases.
 """
 
 from .embedding import trajectory_matrix, mssa_trajectory_matrix, embed

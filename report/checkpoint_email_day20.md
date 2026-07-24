@@ -39,9 +39,10 @@ Two small points I'd value your view on:
 2. Please confirm you're happy carrying both algorithms (Huber primary, L1 secondary) into
    the empirical phase.
 
-The code and a short synthetic-validation report are on GitHub (tag v0.2-robust-synthetic);
-99 tests pass and every figure reproduces from a script + seed. Next I'll move to the
-empirical study on the equity and macro panels.
+The code and a short synthetic-validation report are on GitHub
+(https://github.com/Ajayendra2705/robust-mssa, tag v0.2-robust-synthetic); 99 tests pass
+and every figure reproduces from a script + seed. Next I'll move to the empirical study on
+the equity and macro panels.
 
 Thank you very much.
 

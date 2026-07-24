@@ -38,3 +38,6 @@ Thumbs.db
 
 # R cross-check generated fixtures/outputs
 experiments/02_synthetic_validation/rcheck/*.csv
+
+# Local planning mirror (kept out of the repo)
+PLAN.md

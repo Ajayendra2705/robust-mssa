@@ -72,8 +72,6 @@ comparison at zero contamination.
 | 4 — Out-of-sample evaluation | 41–50 | pending |
 | 5 — Report, release, paper draft | 51–60 | pending |
 
-See [`PLAN.md`](PLAN.md) for the full day-by-day plan.
-
 ## Results so far
 
 Synthetic validation against a known clean signal (`report/phase2_summary.md` ties these
