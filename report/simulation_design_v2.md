@@ -4,11 +4,18 @@ Prepared for Prof. Paulo Canas Rodrigues, following his 25 Jul 2026 questions on
 simulation study. This is the "short table before running it at full scale" promised in
 my reply of the same date.
 
-Everything below is **implemented and tested** (187 passing tests), and the pilot runs in
+Everything below is **implemented and tested** (191 passing tests), and the pilot runs in
 §5 have been executed at reduced replication (3–5 seeds per cell, ~2 000 fits). The R
 cross-check is also done — §5.4. What remains is the full-scale run; §6 lists the
 decisions I would like from you before committing compute to it, because two of them
 change what the design should be.
+
+> **Note added 2 Sep.** The R cross-check exposed a fault in my robust solver: its
+> iteration is a fixed-point scheme, so it could be captured by the outliers at its
+> starting point and never recover. It is fixed (the fit now starts from two points and
+> keeps the better one), and clean-data results are unchanged. The §5.1 fit table has been
+> re-run under the fix and its conclusion is unchanged; **§5.3 (forecasting) has not been
+> re-run yet** and its numbers should be read as provisional.
 
 ---
 
@@ -153,39 +160,35 @@ floor it is ≈ 42×. The panels also differ — Phase 2 used a synthetic base, 
 one — so the cross-reference below is context, not a controlled comparison. The *type*
 comparison within this table is controlled: same panel, same r, same floor throughout.
 
-| outlier type (8× sd) | ε = 1% | ε = 5% | ε = 10% | ε = 20% |
-|---|---|---|---|---|
-| **additive** | 2.5× raw / **9.1× net** | 4.4× / 7.0× | 2.4× / 2.5× | 1.9× / 1.9× |
-| **innovational** | 1.6× / 1.9× | 1.5× / 1.5× | 1.4× / 1.4× | 1.4× / 1.4× |
-| **patch** | 1.1× / 1.1× | 1.1× / 1.1× | 1.0× / 1.0× | 1.0× / 1.0× |
-| **level shift** † | 1.0× / 1.0× | 1.0× / 1.0× | 1.0× / 1.0× | 1.0× / 1.0× |
+Re-run 2 Sep under the corrected solver (§5.4). The earlier figures are kept in the right
+column so the effect of the fix is visible:
+
+| outlier type (8× sd) | ε = 1% | ε = 5% | ε = 10% | ε = 20% | _(before the fix)_ |
+|---|---|---|---|---|---|
+| **additive** | 2.5× raw / **7.7× net** | 5.2× / 16.7× | 4.2× / 5.2× | 2.2× / 2.2× | _9.1 / 7.0 / 2.5 / 1.9 net_ |
+| **innovational** | 1.6× / 1.8× | 1.5× / 1.6× | 1.5× / 1.5× | 1.4× / 1.4× | _1.9 / 1.5 / 1.4 / 1.4_ |
+| **patch** | 1.7× / 2.0× | 1.1× / 1.1× | 1.0× / 1.0× | 1.1× / 1.1× | _1.1 / 1.1 / 1.0 / 1.0_ |
+| **level shift** † | 1.0× / 1.0× | 1.0× / 1.0× | 1.0× / 1.0× | 1.0× / 1.0× | _unchanged_ |
 
 † For level shifts the ε column is nominal — see the parametrisation note below. Realised
 rates are 15%, 15%, 21.9%, 25.4%.
 
-**How much of this is seed noise?** Only 3 seeds per cell, so this is worth checking
-rather than assuming, and the two halves of the table behave very differently:
+**The ordering is unchanged by the fix**: additive is separated from the structured types
+at every rate, and level shifts sit at 1.00–1.01× throughout. What the fix moved is the
+additive row (larger, and no longer collapsing at ε = 10%) and the seed scatter.
 
-| | per-seed net gains (ε = 5%) | spread |
-|---|---|---|
-| additive | 25.6, 16.4, 4.0 | **enormous** |
-| innovational | 1.64, 1.55, 1.34 | 0.30 |
-| patch | 1.06, 1.09, 1.05 | 0.04 |
-| level shift | 1.00, 1.01, 1.00 | 0.01 |
+**How much of this is seed noise?** This was the weakest part of the pilot, and the fix
+substantially answers it. The per-seed additive gains that motivated the caveat —
+25.6, 16.4, 4.0 at ε = 5% — turned out to be mostly the solver being captured on the low
+seeds, not sampling variability. On the Phase-2 grid, where the same effect is measurable
+over 10 seeds, the max/min spread falls from 8.1× to 2.2× at ε = 5% and from 5.5× to 1.2×
+at ε = 2%. The structured types were near-noiseless before and remain so (patch
+1.06/1.09/1.05, level shift 1.00/1.01/1.00).
 
-Two conclusions, and they pull in opposite directions:
-
-* **The type *ordering* is completely separated** — at both ε = 5% and ε = 20% the *worst*
-  additive seed still beats the *best* patch and level-shift seed (4.04 vs 1.09/1.01, and
-  1.47 vs 1.07/1.00). The structured-contamination result has essentially zero seed
-  variance. This finding is safe — with the caveat above that seeds are paired on the
-  signal, so "zero variance" means zero *conditional on this signal*, and a second signal
-  realisation is the check still owed.
-* **The additive *multiplier* is not determined by 3 seeds.** It ranges 4× to 26× at
-  ε = 5%, and the headline figure also moves with the floor convention (7.0× using a
-  pooled floor, 8.3× using per-seed floors). Individual additive numbers above should be
-  read as order-of-magnitude only, and the full-scale run needs many more seeds before any
-  of them is quoted.
+Two things still owed: seeds here are paired on the signal, so a second *signal
+realisation* remains the real generalisation check (§5.1 does this across four base
+signals, with identical ordering), and the additive multiplier still deserves many more
+seeds before any single number is quoted.
 
 **Does it generalise beyond this one signal?** Since seeds are paired on the signal, the
 check that matters is repeating the comparison on *different* clean signals. Net-of-floor
@@ -287,6 +290,10 @@ checked that it is not smuggling in test-period information — the rank compute
 training window alone is identical to the rank computed from the full sample. Absolute
 error levels should still be read as slightly optimistic.
 
+**Provisional — not yet re-run under the corrected solver (§5.4).** The fit results moved
+by 1.2–3.0× when that was fixed, so these numbers will move too; the direction of the
+comparison is unlikely to change, but no figure here should be quoted yet.
+
 Rolling-origin RMSE against the clean signal, multivariate cells:
 
 | base | dependence | ε | classical | Huber | gain |
@@ -349,12 +356,30 @@ at iteration 1 and never moves, and does not converge even after 2000 sweeps. It
 weighting failure: the Huber weights are correct throughout (0.14 on contaminated cells vs
 0.93 on clean). The R package's per-component deflation escapes the basin; ours does not.
 
-**Measured validity domain** (r = 2, distance to the true subspace, 3 seeds): the failure is
-confined to the narrowest matrices. At K = 42 with 10% contamination the solver degrades
-(0.40 at 8× outliers, 0.69 at 15×); at **K ≥ 122 it recovers to 0.048–0.107 and beats the
-classical SVD in every cell tested**. Every trajectory matrix in the Phase-2 and design-v2
-experiments has K ≥ 400, so those results sit inside the validated region — but a robust
-initialisation is the obvious fix and should be done before any short-window work.
+**This is not confined to narrow matrices, and it is now fixed.** My first reading was that
+the damage was bounded by matrix width (K ≥ 122 safe), which would have put all Phase-2 and
+design-v2 results inside a validated region. That was wrong. Repeating the measurement at a
+well-posed rank on the Phase-2 grid itself — K = 1506 — the capture is plainly present:
+correcting it improves signal recovery by 1.2–3.0× at every contamination level, and 9 of
+10 seeds at ε = 5% prefer the corrected start. Width changes how often it happens, not
+whether it can.
+
+The fix: neither candidate starting point is safe alone. The classical SVD is already
+rotated onto the outliers when they dominate; a Winsorized start escapes that but perturbs
+an exactly low-rank *clean* matrix off its exact solution and sticks there, which would
+break the ε = 0 equivalence with the classical SVD that makes this comparison fair at all.
+So the fit now runs from both and keeps whichever has the lower M-estimation objective,
+scored at a common scale. The estimator, its weights and its fixed-point equation are
+untouched — only which fixed point gets reported. On clean data ε = 0 moves by 3e-12; the
+narrow fixture recovers from a median subspace distance of 0.637 to 0.076.
+
+Two caveats on the table above, both worth knowing before it is quoted. The two seeds that
+fail at 40×805 are *not* capture — their clean spectra have s₃/s₂ ≈ 0.98, so the rank-2
+target subspace is degenerate and no estimator can be scored against it; the fix leaves
+them bit-identical. And this whole ladder runs at r = 2 against a signal of SSA rank 6,
+which is below the rank at which the robust and classical fits are guaranteed to agree even
+on clean data. **The cross-check should be re-run at the corrected default, at a
+well-specified rank, over several seeds** — that is the next item on my list.
 
 Two further findings from doing the check:
 
