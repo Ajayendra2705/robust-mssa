@@ -194,3 +194,64 @@ def test_both_robust_algorithms_agree_on_clean_data():
     assert np.allclose(a.s, b.s, rtol=1e-4, atol=1e-6)
     rel = np.linalg.norm(a.reconstruct_matrix() - b.reconstruct_matrix()) / np.linalg.norm(H)
     assert rel < 1e-6
+
+
+# ------------------------------------------------------------- initialisation basin
+# The IRLS-by-imputation iteration is a fixed-point scheme, not a descent method, so
+# the starting point decides which fixed point it reaches. Starting at the classical
+# SVD of a heavily contaminated matrix starts it inside the basin the outliers have
+# already rotated it into, and imputation cannot leave it (down-weighted cells are
+# replaced by the current model's own values). The default init runs both the classical
+# and a Winsorized start and keeps whichever has the lower objective at a common scale.
+
+
+def _contaminated_narrow_fixture(seed: int):
+    """A narrow, heavily contaminated trajectory matrix + its clean counterpart.
+
+    Narrow because that is where the classical start fails most often: with few
+    trajectory columns the outliers carry enough of the leading subspace to capture it.
+    """
+    from rmssa.datasets import make_synthetic_panel
+
+    sp = make_synthetic_panel(T=60, p=2, k=2, noise_sd=0.03, contamination=0.10,
+                              outlier_scale=15.0, seed=seed)
+    H, _ = mssa_trajectory_matrix([sp.X[:, j] for j in range(2)], 40)
+    Hc, _ = mssa_trajectory_matrix([sp.signal[:, j] for j in range(2)], 40)
+    return H, Hc
+
+
+def test_default_init_escapes_the_outlier_basin():
+    # seed 0 is one of the seeds where the classical start is captured: it lands
+    # ~orthogonal to the true factor subspace and stays there.
+    H, Hc = _contaminated_narrow_fixture(seed=0)
+    truth = np.linalg.svd(Hc, full_matrices=False)[0][:, :2]
+
+    trapped = RobRSVD(rank=2, max_iter=300, init="classical").decompose(H)
+    backend = RobRSVD(rank=2, max_iter=300)
+    default = backend.decompose(H)
+
+    assert subspace_distance(trapped.U, truth) > 0.5     # captured by the outliers
+    assert subspace_distance(default.U, truth) < 0.15    # recovers the true subspace
+    assert backend.init_used_ == "robust"
+
+
+@pytest.mark.parametrize("Backend", ROBUST_BACKENDS)
+def test_default_init_keeps_exactness_on_clean_low_rank_data(Backend):
+    # The Winsorized start alone would break this: clipping perturbs an exactly
+    # low-rank matrix off its exact solution, and the iteration sticks there. Scoring
+    # both starts on a common objective must pick the classical one, whose residual
+    # (and objective) is exactly zero.
+    rng = np.random.default_rng(7)
+    H = rng.standard_normal((30, 4)) @ rng.standard_normal((4, 120))  # exact rank 4
+
+    std = StandardSVD(rank=4).decompose(H)
+    backend = Backend(rank=4)
+    rob = backend.decompose(H)
+
+    assert backend.init_used_ == "classical"
+    assert np.allclose(rob.s, std.s, rtol=1e-6, atol=1e-8)
+
+
+def test_init_argument_is_validated():
+    with pytest.raises(ValueError, match="init must be"):
+        RobRSVD(rank=2, init="winsorised")

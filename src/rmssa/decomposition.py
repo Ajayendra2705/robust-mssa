@@ -169,9 +169,17 @@ class StandardSVD(DecompositionBackend):
 # and the model is refreshed as the truncated L2 SVD of the cleaned matrix Z.
 # Iterate to convergence. The weight is estimated against the *full* rank-r model
 # (not a single rank-1 layer), so legitimate lower-rank signal is NOT mistaken
-# for outliers -- the flaw of naive rank-1 deflation. On clean / exactly low-rank
-# data R -> 0, W -> 1, Z -> H, so the fit collapses to the ordinary SVD and the
-# "classical vs robust" comparison is fair at contamination epsilon = 0.
+# for outliers -- the flaw of naive rank-1 deflation.
+#
+# Reduction to the ordinary SVD at epsilon = 0 holds only when r >= rank(signal).
+# Then R -> 0, W -> 1, Z -> H and the two backends agree with StandardSVD to ~1e-8,
+# so the "classical vs robust" comparison is fair. Below the signal rank the residual
+# is not noise but *discarded signal*, the MAD scale is set by it, and the Huber weight
+# down-weights legitimate structure: on a noise-free rank-6 panel the robust and
+# classical rank-3 subspaces sit 0.57 apart with no contamination whatever. The
+# approximation error is barely affected (within 1-5% of the L2 optimum at every rank),
+# so signal-recovery comparisons stay fair -- but *subspace* comparisons below the
+# signal rank do not. See report/results_robust_init.md.
 #
 # The two algorithms are the two robust SSA model-fit variants of
 #   Rodrigues, Pimentel, Messala & Kazemi (2020), "The Decomposition and
@@ -193,6 +201,22 @@ class StandardSVD(DecompositionBackend):
 # comparability (Day 14/16). The shared engine makes swapping the weight function
 # (hence the algorithm) a one-line change.
 # ============================================================================
+
+
+def _winsorized(H: np.ndarray, k: float = 2.5) -> np.ndarray:
+    """Column-wise Winsorization of H at ``median +- k * MAD`` — an outlier-resistant
+    stand-in for H, used only to *initialise* the IRLS iteration.
+
+    Why this exists (measured, see ``report/results_robust_init.md``): initialising at
+    the classical SVD of H starts the iteration inside the basin the outliers have
+    already rotated it into, and IRLS-by-imputation cannot leave it — down-weighted
+    cells are replaced by the *current* model's own values, so the current model is a
+    fixed point. Starting from a Winsorized copy instead does not change the estimator,
+    only which fixed point it reaches.
+    """
+    med = np.median(H, axis=0, keepdims=True)
+    scale = np.maximum(1.4826 * np.median(np.abs(H - med), axis=0, keepdims=True), 1e-12)
+    return np.clip(H, med - k * scale, med + k * scale)
 
 
 def _mad_scale(r: np.ndarray, eps: float = 1e-12) -> float:
@@ -229,12 +253,13 @@ class RobustSVD(DecompositionBackend):
     """Robust SVD by iteratively reweighted imputation (IRLS) of the rank-r model.
 
     Concrete backends (:class:`RobRSVD`, :class:`AlternatingL1SVD`) only choose the
-    residual weight function. On clean data this converges to the ordinary SVD
-    (weights -> 1), so robust backends agree with :class:`StandardSVD` at
-    contamination epsilon = 0; a planted outlier is *down-weighted* rather than
-    allowed to rotate the leading subspace. Because the weight is estimated against
-    the full rank-r model, genuine lower-rank components are not mistaken for
-    outliers. The returned ``U``/``Vt`` are orthonormal (final truncated SVD).
+    residual weight function. On clean data *at or above the signal rank* this converges
+    to the ordinary SVD (weights -> 1), so robust backends agree with
+    :class:`StandardSVD` at contamination epsilon = 0; a planted outlier is
+    *down-weighted* rather than allowed to rotate the leading subspace. Because the
+    weight is estimated against the full rank-r model, genuine lower-rank components are
+    not mistaken for outliers. Below the signal rank that equivalence fails — see the
+    module comment. The returned ``U``/``Vt`` are orthonormal (final truncated SVD).
 
     Requires an explicit ``rank`` (r): the robust low-rank target is rank-r, so the
     truncation is part of the estimator, not a post-hoc cut. ``rank=None`` falls
@@ -246,11 +271,16 @@ class RobustSVD(DecompositionBackend):
     c : tuning constant for the weight function (Huber default 1.345).
     max_iter : max IRLS sweeps.
     tol : convergence tolerance on the relative change of the rank-r model.
+    init : ``"robust"`` (default) starts from the SVD of a Winsorized copy of H;
+           ``"classical"`` starts from the SVD of H itself, which is what Phase 2 did.
+           The two agree exactly unless the classical start is already captured by the
+           outliers — see :func:`_winsorized`.
 
     Attributes (set after ``decompose``)
     ------------------------------------
     n_iter_ : number of IRLS sweeps actually run.
     converged_ : whether the tolerance was met before ``max_iter``.
+    init_used_ : which starting point produced the returned fit ("classical"/"robust").
     """
 
     #: subclasses set this; it is the only thing that differs between algorithms
@@ -263,35 +293,42 @@ class RobustSVD(DecompositionBackend):
         c: float | None = None,
         max_iter: int = 200,
         tol: float = 1e-9,
+        init: str = "auto",
     ):
         if rank is not None and rank < 1:
             raise ValueError(f"rank must be >= 1 or None, got {rank}")
+        if init not in ("auto", "robust", "classical"):
+            raise ValueError(f"init must be 'auto', 'robust' or 'classical', got {init!r}")
         self.rank = rank
         self.c = self._default_c if c is None else float(c)
         self.max_iter = int(max_iter)
         self.tol = float(tol)
+        self.init = init
 
     @staticmethod
     def _truncated_svd(M: np.ndarray, r: int):
         U, s, Vt = np.linalg.svd(M, full_matrices=False)
         return U[:, :r], s[:r], Vt[:r]
 
-    # --------------------------------------------------------------- backend
-    def decompose(self, H: np.ndarray) -> Decomposition:
-        H = np.asarray(H, dtype=float)
-        if H.ndim != 2:
-            raise ValueError(f"H must be 2-D, got shape {H.shape}")
+    def _rho(self, R: np.ndarray, scale: float) -> float:
+        """The M-estimation objective this backend's weights are the IRLS weights of.
 
-        max_rank = min(H.shape)
-        r = max_rank if self.rank is None else min(self.rank, max_rank)
+        ``rho(z) = z^2/2`` inside ``c``, ``c(|z| - c/2)`` outside — Huber at c = 1.345 for
+        RHSSA, and the same function at c = 1 for the L1/LAD weights of RLSSA. Used only
+        to choose between the fits produced by different starting points, so it must be
+        evaluated at a *common* scale: each fit's own MAD scale would let a fit that has
+        absorbed the outliers shrink its scale and win.
+        """
+        z = np.abs(R) / scale
+        return float(np.sum(np.where(z <= self.c, 0.5 * z ** 2, self.c * (z - 0.5 * self.c))))
 
-        # init: ordinary truncated SVD
-        U, s, Vt = self._truncated_svd(H, r)
-        L_r = (U * s) @ Vt
+    def _irls(self, H: np.ndarray, start: np.ndarray, r: int):
+        """IRLS-by-imputation sweeps from a given rank-r starting model."""
+        L_r = start
         prev_norm = np.linalg.norm(L_r) or 1.0
+        U, s, Vt = self._truncated_svd(L_r, r)
+        n_iter, converged = 0, False
 
-        self.n_iter_ = 0
-        self.converged_ = False
         for it in range(self.max_iter):
             R = H - L_r
             scale = _mad_scale(R)
@@ -303,10 +340,51 @@ class RobustSVD(DecompositionBackend):
             change = np.linalg.norm(L_new - L_r) / prev_norm
             L_r = L_new
             prev_norm = np.linalg.norm(L_r) or 1.0
-            self.n_iter_ = it + 1
+            n_iter = it + 1
             if change <= self.tol:
-                self.converged_ = True
+                converged = True
                 break
+        return L_r, U, s, Vt, n_iter, converged
+
+    # --------------------------------------------------------------- backend
+    def decompose(self, H: np.ndarray) -> Decomposition:
+        H = np.asarray(H, dtype=float)
+        if H.ndim != 2:
+            raise ValueError(f"H must be 2-D, got shape {H.shape}")
+
+        max_rank = min(H.shape)
+        r = max_rank if self.rank is None else min(self.rank, max_rank)
+
+        # The iteration is a fixed-point scheme, not a descent method, so the starting
+        # point decides which fixed point it reaches. Neither candidate start is safe
+        # alone: the classical SVD of H is already rotated onto the outliers whenever
+        # they dominate (and IRLS-by-imputation cannot leave that basin), while the
+        # Winsorized start perturbs an exactly-low-rank clean matrix off its exact
+        # solution and sticks there. So run both and keep whichever fit actually has the
+        # lower objective, scored at one common scale. On clean data the classical fit
+        # scores exactly 0 and wins; under heavy contamination the Winsorized one wins.
+        starts = {"classical": H, "robust": _winsorized(H)}
+        if self.init != "auto":
+            starts = {self.init: starts[self.init]}
+
+        fits = {}
+        for name, seed_matrix in starts.items():
+            Us, ss, Vts = self._truncated_svd(seed_matrix, r)
+            fits[name] = self._irls(H, (Us * ss) @ Vts, r)
+
+        if len(fits) == 1:
+            self.init_used_ = next(iter(fits))
+        else:
+            # common scale: fixed by the Winsorized fit, so it does not depend on which
+            # candidate is being scored. Ties (both residuals ~0) keep "classical".
+            sigma = _mad_scale(H - fits["robust"][0])
+            self.init_used_ = (
+                "robust"
+                if self._rho(H - fits["robust"][0], sigma) < self._rho(H - fits["classical"][0], sigma)
+                else "classical"
+            )
+
+        L_r, U, s, Vt, self.n_iter_, self.converged_ = fits[self.init_used_]
 
         # drop any numerically-zero trailing singular values (keep >= 1)
         if s.size:
