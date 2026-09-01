@@ -26,11 +26,16 @@ Fixtures are contaminated at 10% of cells with 15× outliers **specifically so t
 > ### ⚠️ Superseded — see `results_robust_init.md`
 >
 > The diagnosis above (imputation makes the current model a fixed point) is right; the
-> **validity domain is not**. Repeating it over 10 seeds instead of 3 shows the capture
-> happens at *every* width — 6/10 seeds at K=42, but still **2/10 at K=805**, the
-> realistic MSSA size at which this cross-check passed. The single-seed fixture here drew
-> a good seed. Width changes the rate of capture, not its presence, so "K ≥ 122 is safe"
-> was too generous and the Phase-2 results were *not* fully inside a validated region.
+> **validity domain is not**. Width is not the controlling variable. The Phase-2 grid
+> itself — K = 1506, well inside the supposedly safe region — is affected: fixing the
+> initialisation improves signal recovery there by 1.2–3.0× at every contamination level,
+> with 9 of 10 seeds at ε = 5% preferring the new start. So "K ≥ 122 is safe" was too
+> generous, and the Phase-2 results were *not* fully inside a validated region.
+>
+> (The 2/10 seeds that fail at K = 805 on the fixture ladder above are a *different*
+> problem and are not evidence of capture: their clean spectra have s₃/s₂ ≈ 0.98, so the
+> rank-2 target is degenerate and the fix leaves them bit-identical. This whole ladder
+> also runs at r = 2 against a rank-6 signal — see §4 of `results_robust_init.md`.)
 >
 > The fix is in: the backends now run the iteration from both the classical and a
 > Winsorized start and keep whichever has the lower M-estimation objective at a common

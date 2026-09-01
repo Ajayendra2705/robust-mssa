@@ -9,8 +9,9 @@ the original diagnosis got wrong.
 
 ## 1. The failure is not confined to narrow matrices
 
-It is a *starting point* failure, and narrowness only makes it more likely. Scoring against
-the clean-signal subspace (r = 2, 10% of cells contaminated at 15× sd, 10 seeds):
+It is a *starting point* failure. Narrowness makes it more likely but does not bound it.
+Scoring against the clean-signal subspace (r = 2, 10% of cells contaminated at 15× sd,
+10 seeds), under the old classical-only start:
 
 | fixture | K | median distance to truth | seeds failing (> 0.25) |
 |---|---:|---:|---:|
@@ -19,10 +20,20 @@ the clean-signal subspace (r = 2, 10% of cells contaminated at 15× sd, 10 seeds
 | wide | 273 | 0.0634 | 1 / 10 |
 | mssa-scale | 805 | 0.0471 | 2 / 10 |
 
-Two of ten seeds fail at K = 805 — the realistic MSSA size, and the size at which the R
-cross-check *passed*. The cross-check used a single seed and happened to draw a good one.
-The claim in `results_rcheck.md` that the validated region is "K ≥ 122" was therefore too
-generous: width shifts the *rate* of capture, it does not remove it.
+**The two failures at K = 805 are not capture, and must not be quoted as such.** They are
+seeds 0 and 6, whose clean spectra are `[94.4, 93.4, 92.1, 89.5]` and
+`[95.1, 93.3, 91.1, 88.5]` — s₃/s₂ = 0.986 and 0.976, so the rank-2 target subspace is
+essentially undefined and nothing can be scored against it. The two-start fix leaves them
+bit-identical (`d_old == d_new` on all ten seeds at this width). This fixture ladder alone
+therefore does **not** demonstrate capture beyond K ≈ 82.
+
+The evidence that capture is not confined to narrow matrices comes from the Phase-2 grid
+instead (§3): at T = 300, p = 6, L = 50 — a trajectory matrix of **K = 1506** — at a
+well-posed rank r = 6, the fix improves signal recovery by 1.2–3.0× at every contamination
+level, and 9 of 10 seeds at ε = 5% switch to the Winsorized start. So the
+`results_rcheck.md` claim that the validated region is "K ≥ 122" was too generous, but the
+right correction is that width is not the controlling variable at all — the contamination
+rate is, and the eigengap governs whether the target is even well posed.
 
 ## 2. The fix: run both starts, keep the one with the lower objective
 
@@ -85,9 +96,24 @@ seed (10 seeds), before and after:
 The low seeds — 7.0, 6.2, 6.0 — were not hard draws of the data. They were the optimiser
 being captured. This directly revises the caveat carried in the design-v2 write-up, that
 the additive multiplier "is not pinned down by 3 seeds (per-seed 25.6/16.4/4.0)": a good
-part of that scatter was the solver, and it largely disappears. The *ordering* of
-contamination types, which was the actual finding there, is unaffected — but the
-contamination-type and forecasting tables should be re-run before anything is quoted.
+part of that scatter was the solver, and it largely disappears.
+
+**The contamination-type ordering — the actual finding — survives the fix.** Re-run on the
+design-v2 headline cell (AirPassengers base, p = 4, L = 48, r = 8, multivariate, 8× sd,
+3 seeds), as gain over classical MSSA net of the per-seed clean-data floor:
+
+| outlier type | ε=1% | ε=5% | ε=10% | ε=20% |
+|---|---:|---:|---:|---:|
+| additive | 7.7× | 16.7× | 5.2× | 2.2× |
+| innovational | 1.8× | 1.6× | 1.5× | 1.4× |
+| patch | 2.0× | 1.1× | 1.0× | 1.1× |
+| level shift | 1.01× | 1.01× | 1.00× | 1.00× |
+
+Same ordering as before the fix, with the additive row larger and the structured rows
+essentially unmoved. The level-shift mechanism is unchanged too: at ε = 5% classical scores
+3.022 and robust 3.006 against a clean-data floor of 0.144 — both far past 1.0, i.e. both
+worse than predicting zero. Patches at ε = 5% are 1.424 vs 1.337, also both failing.
+**The forecasting tables still need re-running.**
 
 ## 4. A separate correction: "fair at ε = 0" needs a rank condition
 
