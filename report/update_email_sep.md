@@ -4,6 +4,23 @@
 
 **Attach:** `report/simulation_design_v2.md` (the revised design table promised in July)
 
+> ### ⚠️ SENT — and it did not land. Do not reuse this style.
+>
+> Sent 2 Sep 2026. On 3 Sep Prof. Rodrigues replied challenging it as AI-generated:
+> *"they seem to have too much information, have too many words and seem orgabized as
+> coming from gen AI… In those cases that I suspect that emails are generated with
+> generative AI, I usually just ignore the emails."* He asked for my own words, plain and
+> objective. I confirmed, apologised, and from here I write the emails myself.
+>
+> The tells he named are all visible below: bolded lead-ins on every paragraph, a
+> numbered question block, and far more detail than the two questions needed. **The
+> technical content is still accurate** — see `results_robust_init.md` and
+> `simulation_design_v2.md` — but this file is kept as a record of what was sent and why
+> it failed, not as a template.
+>
+> Still unanswered and worth re-asking in one or two plain sentences: what "independent"
+> means in H1, and whether MSSA may use more rank than SSA.
+
 ---
 
 Dear Professor Rodrigues,

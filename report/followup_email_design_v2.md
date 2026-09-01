@@ -4,6 +4,15 @@
 
 **Attach:** `report/simulation_design_v2.md` (the design table and full detail)
 
+> ### ⚠️ NEVER SENT — superseded, and the wrong register anyway
+>
+> Drafted 10 Aug 2026, superseded by the shorter `update_email_sep.md` before sending.
+> That shorter version was itself challenged by the supervisor on 3 Sep as AI-generated;
+> this one is longer and would have failed harder. Kept only as a record.
+>
+> Its numbers also predate the 2 Sep initialisation fix and several are now wrong —
+> `results_robust_init.md` supersedes it. Nothing here should be quoted.
+
 ---
 
 Dear Professor Rodrigues,

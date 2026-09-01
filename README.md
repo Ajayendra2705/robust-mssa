@@ -63,28 +63,42 @@ comparison at zero contamination.
 
 ## Status
 
+_Last updated 3 Sep 2026 · 191 tests passing · work since `v0.2` lives on the
+`phase3-design-v2-and-init-fix` branch, not yet merged._
+
 | Phase | Days | State |
 |-------|------|-------|
 | 1 — Foundations & standard-MSSA baseline | 1–10 | **done** (`v0.1-baseline`) — reference-validated |
-| 2 — Robust MSSA + synthetic validation | 11–20 | **done** (`v0.2-robust-synthetic`) — 99 tests passing |
-| 2b — Hardening & wrap | 21–25 | in progress |
-| 3 — Empirical study (equity + macro) | 26–40 | pending |
-| 4 — Out-of-sample evaluation | 41–50 | pending |
+| 2 — Robust MSSA + synthetic validation | 11–20 | **done** (`v0.2-robust-synthetic`) |
+| 2b — Hardening, R cross-check, design v2 | 21–25 | **done**, not tagged — solver fix landed 2 Sep, so the harness is not frozen |
+| 3 — Empirical study (equity + macro) | 26–40 | **not started** — panels downloaded, untouched |
+| 4 — Out-of-sample evaluation | 41–50 | pending — forecasting code exists, tables need re-running |
 | 5 — Report, release, paper draft | 51–60 | pending |
+
+The planned 12-week window (1 Jun → ~23 Aug 2026) has closed with roughly Day 25 of 60
+delivered. The largest gap: this repo's title promises a cross-sectional **financial**
+study and none exists yet — everything to date is synthetic or AirPassengers.
 
 ## Results so far
 
 Synthetic validation against a known clean signal (`report/phase2_summary.md` ties these
 together):
 
-- **No robustness tax at ε=0; robust wins under contamination** — [`results_phase2_grid.md`](report/results_phase2_grid.md).
+- **No robustness tax at ε=0; robust wins under contamination** — [`results_phase2_grid.md`](report/results_phase2_grid.md). ⚠️ The ε=0 parity holds only when the retained rank r ≥ the signal's SSA rank; below it the robust and classical fits pick genuinely different subspaces even on clean, noise-free data. Reconstruction stays within 1–5% of the L2 optimum at any rank, so signal-recovery comparisons remain fair.
 - **Contamination sweep** (recovery + subspace error vs ε) — [`results_phase2_sweep.md`](report/results_phase2_sweep.md).
 - **Where the gain is largest/smallest** (vary k/p/T/L) — [`results_phase2_dimsweep.md`](report/results_phase2_dimsweep.md).
 - **Huber vs L1** (near-equivalent; Huber cheaper) — [`results_phase2_algocompare.md`](report/results_phase2_algocompare.md).
 
-Headline: at 2% contamination Robust MSSA (Huber, multivariate) recovers the clean signal
-~27× more accurately than classical MSSA; classical collapses as contamination rises while
-Robust MSSA degrades gracefully. Every figure/number regenerates from a script + config + seed.
+Then, after the supervisor asked for a wider design (25 Jul):
+
+- **The robust advantage is specific to isolated additive outliers** — [`results_v2_contamination.md`](report/results_v2_contamination.md). Against innovational outliers ~1.5×, patches ~1.1×, and level shifts **1.00×**, where classical and robust both fail outright (recovery error ≈ 3.0 against a clean-data floor of 0.14). A permanent step is ~50% contamination within its own column, past the estimator's breakdown point, so it is absorbed as trend rather than rejected. This is the most publishable result here.
+- **Cross-check against the original R implementations** — [`results_rcheck.md`](report/results_rcheck.md). Passes at MSSA scale (0.020 from `RobRSVD` against a non-robust control at 0.995), fails on narrow fixtures. The first version of this check passed everywhere and was worthless, because the *non-robust* SVD also matched the reference at that contamination level.
+- **A real fault in the solver, found by that check and now fixed** — [`results_robust_init.md`](report/results_robust_init.md). The IRLS iteration is a fixed-point scheme, not a descent method, so it could be captured by the outliers at its starting point and never leave. It now runs from two starting points and keeps the fit with the lower objective at a common scale. Signal recovery improved 1.2–3.0× at every contamination level, with ε=0 unchanged to 3e-12.
+
+Phase-2's headline — ~27× at 2% contamination — should be read with two caveats now: it is
+specific to *isolated additive* outliers, and part of the seed-to-seed scatter around it was
+the solver being captured rather than sampling noise. Every figure and number regenerates
+from a script + config + seed.
 
 ## Install
 
