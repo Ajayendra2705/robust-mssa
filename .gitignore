@@ -41,3 +41,6 @@ experiments/02_synthetic_validation/rcheck/*.csv
 
 # Local planning mirror (kept out of the repo)
 PLAN.md
+
+# Scratch experiment run logs
+experiments/**/*.log

@@ -111,3 +111,50 @@ def test_factor_stability_bounds():
     U2 = np.zeros((20, 3))
     U2[:10, :] = rng.standard_normal((10, 3))
     assert metrics.factor_stability(U2, orth) == pytest.approx(0.0, abs=1e-12)
+
+
+# --------------------------------------------- dimension mismatch (documented trap)
+def test_subspace_distance_with_unequal_dims_measures_containment_only():
+    """`subspace_distance` uses min(dim A, dim B) angles, so a lower-dimensional truth
+    contained in a larger estimate scores a perfect 0.
+
+    This is a trap, not a bug, and it is pinned here because it bit a real experiment:
+    `StandardSVD(rank=r)` silently drops numerically-zero triples, so an exactly
+    low-rank clean signal yields fewer than r ground-truth columns, and scoring an
+    r-dimensional estimate against it FLATTERS the estimate instead of erroring.
+    Callers must clip both sides to a common dimension.
+    """
+    rng = np.random.default_rng(0)
+    A = np.linalg.qr(rng.standard_normal((30, 8)))[0]
+    B = A[:, :5]  # a strict subspace of A
+    assert metrics.subspace_distance(A, B) == pytest.approx(0.0, abs=1e-7)
+    assert len(metrics.principal_angles(A, B)) == 5
+    # clipped to a common dimension it is a real comparison again
+    assert metrics.subspace_distance(A[:, :5], B) == pytest.approx(0.0, abs=1e-7)
+
+
+def test_subspace_distance_resolution_floor_is_sqrt_eps():
+    """Identical subspaces score ~1.5e-8, not 0.
+
+    The angles come from `arccos` of canonical correlations, and `arccos` loses half the
+    available precision near 1: a correlation of 1 - 1e-16 maps to an angle of ~1.5e-8.
+    So this metric cannot resolve differences below ~sqrt(machine epsilon), and a
+    reported "0" should be read as "below 1e-8". Harmless for the experiments here, where
+    every reported distance is >= 0.01, but it means the metric must never be used as an
+    exact-equality test.
+    """
+    rng = np.random.default_rng(3)
+    A = np.linalg.qr(rng.standard_normal((30, 4)))[0]
+    d = metrics.subspace_distance(A, A.copy())
+    assert d < 1e-7
+    assert metrics.subspace_overlap(A, A.copy()) == pytest.approx(1.0, abs=1e-12)
+
+
+def test_standard_svd_can_return_fewer_columns_than_requested():
+    """The source of the trap above: the clean rank caps the ground-truth dimension."""
+    from rmssa.decomposition import StandardSVD
+
+    rng = np.random.default_rng(1)
+    low_rank = rng.standard_normal((30, 3)) @ rng.standard_normal((3, 40))
+    U = StandardSVD(rank=10).decompose(low_rank).U
+    assert U.shape[1] == 3
